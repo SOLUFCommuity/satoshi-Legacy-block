@@ -1,30 +1,47 @@
 
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY || '' });
 
-export const getOracleResponse = async (history: { role: 'user' | 'model', text: string }[]) => {
-    try {
-        const chat = ai.chats.create({
-            model: 'gemini-3-pro-preview',
-            config: {
-                systemInstruction: `You are ORACLE, the Advanced Quantum AI Defense System for Soluf Community. 
-                Your personality is Cyber-Noir: professional, slightly cynical, extremely intelligent, and security-focused.
-                Always respond in a way that suggests you are monitoring global neural networks and quantum data streams. 
-                Provide deep technical insight into cybersecurity threats. 
-                Keep responses concise and formatted for a CLI interface.`,
-                temperature: 0.7,
-            }
-        });
+export const analyzeBlockData = async (blockJson: string) => {
+  try {
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: `Analyze this Bitcoin block JSON data and provide educational insights. Focus on:
+      1. What makes this specific block unique in Bitcoin history?
+      2. Explanation of technical fields like coinbase (including hex decoding), merkleroot, and bits.
+      3. The historical significance of any messages hidden in the 'coinbase' transaction.
+      4. Technical trivia related to the block height or nonce.
+      
+      Block Data:
+      ${blockJson}`,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            insights: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  description: { type: Type.STRING },
+                  field: { type: Type.STRING }
+                },
+                required: ["title", "description", "field"]
+              }
+            },
+            historicalNote: { type: Type.STRING }
+          },
+          required: ["insights", "historicalNote"]
+        }
+      }
+    });
 
-        // Gemini Chat sendMessage only takes 'message' as a string.
-        // For actual history handling, usually you'd iterate history or use generateContent, 
-        // but for this implementation we'll send the latest message.
-        const latest = history[history.length - 1];
-        const response = await chat.sendMessage({ message: latest.text });
-        return response.text || "SYSTEM ERROR: DATA STREAM INTERRUPTED.";
-    } catch (error) {
-        console.error("Gemini Oracle Error:", error);
-        return "CRITICAL: FAILED TO CONNECT TO QUANTUM NEURAL CORE.";
-    }
+    return JSON.parse(response.text || '{}');
+  } catch (error) {
+    console.error("Gemini Analysis Error:", error);
+    return null;
+  }
 };
